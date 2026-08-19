@@ -2,11 +2,13 @@
 
 import { useMemo, useState } from "react";
 
+import { ArtistComebacks } from "@/components/artist-comebacks";
 import { ArtistErasView } from "@/components/artist-eras";
 import { ArtistObsessions } from "@/components/artist-obsessions";
 import { ListeningTimeline, type SelectedMonth } from "@/components/listening-timeline";
 import { MonthDetail } from "@/components/month-detail";
 import { TrackObsessions } from "@/components/track-obsessions";
+import { findArtistComebacks } from "@/lib/analytics/artist-comebacks";
 import { buildArtistEras } from "@/lib/analytics/artist-eras";
 import { findArtistObsessions } from "@/lib/analytics/artist-obsessions";
 import { summarizeMonth } from "@/lib/analytics/month-detail";
@@ -30,6 +32,7 @@ export function ListeningDashboard({ plays }: { plays: Play[] }) {
   const artistEras = useMemo(() => buildArtistEras(plays), [plays]);
   const artistObsessions = useMemo(() => findArtistObsessions(plays), [plays]);
   const trackObsessions = useMemo(() => findTrackObsessions(plays), [plays]);
+  const artistComebacks = useMemo(() => findArtistComebacks(plays), [plays]);
   const monthDetail = useMemo(
     () => (selectedMonth ? summarizeMonth(plays, selectedMonth.year, selectedMonth.month) : null),
     [plays, selectedMonth],
@@ -68,6 +71,7 @@ export function ListeningDashboard({ plays }: { plays: Play[] }) {
       <ArtistErasView data={artistEras} plays={plays} />
       <ArtistObsessions obsessions={artistObsessions} />
       <TrackObsessions obsessions={trackObsessions} />
+      <ArtistComebacks comebacks={artistComebacks} />
     </div>
   );
 }
