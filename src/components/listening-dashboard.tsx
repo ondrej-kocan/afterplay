@@ -6,11 +6,13 @@ import { ArtistErasView } from "@/components/artist-eras";
 import { ArtistObsessions } from "@/components/artist-obsessions";
 import { ListeningTimeline, type SelectedMonth } from "@/components/listening-timeline";
 import { MonthDetail } from "@/components/month-detail";
+import { TrackObsessions } from "@/components/track-obsessions";
 import { buildArtistEras } from "@/lib/analytics/artist-eras";
 import { findArtistObsessions } from "@/lib/analytics/artist-obsessions";
 import { summarizeMonth } from "@/lib/analytics/month-detail";
 import { aggregateMonthlyListening } from "@/lib/analytics/monthly";
 import { summarizeListeningHistory } from "@/lib/analytics/summary";
+import { findTrackObsessions } from "@/lib/analytics/track-obsessions";
 import type { Play } from "@/lib/listening/play";
 
 const numberFormatter = new Intl.NumberFormat("en-GB");
@@ -26,7 +28,8 @@ export function ListeningDashboard({ plays }: { plays: Play[] }) {
   const summary = useMemo(() => summarizeListeningHistory(plays), [plays]);
   const monthly = useMemo(() => aggregateMonthlyListening(plays), [plays]);
   const artistEras = useMemo(() => buildArtistEras(plays), [plays]);
-  const obsessions = useMemo(() => findArtistObsessions(plays), [plays]);
+  const artistObsessions = useMemo(() => findArtistObsessions(plays), [plays]);
+  const trackObsessions = useMemo(() => findTrackObsessions(plays), [plays]);
   const monthDetail = useMemo(
     () => (selectedMonth ? summarizeMonth(plays, selectedMonth.year, selectedMonth.month) : null),
     [plays, selectedMonth],
@@ -63,7 +66,8 @@ export function ListeningDashboard({ plays }: { plays: Play[] }) {
       <ListeningTimeline data={monthly} selectedMonth={selectedMonth} onSelectMonth={setSelectedMonth} />
       {monthDetail ? <MonthDetail detail={monthDetail} /> : null}
       <ArtistErasView data={artistEras} plays={plays} />
-      <ArtistObsessions obsessions={obsessions} />
+      <ArtistObsessions obsessions={artistObsessions} />
+      <TrackObsessions obsessions={trackObsessions} />
     </div>
   );
 }
