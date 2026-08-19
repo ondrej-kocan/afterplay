@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { MonthlyListening } from "@/lib/analytics/monthly";
-import { isMonthInPeriod, normalizePeriod, type ExcludedPeriod, type MonthPoint } from "@/lib/analytics/exclusions";
+import { normalizePeriod, type ExcludedPeriod, type MonthPoint } from "@/lib/analytics/exclusions";
 
 const monthFormatter = new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric" });
 const numberFormatter = new Intl.NumberFormat("en-GB");
@@ -102,7 +102,9 @@ export function ListeningTimeline({
     const endX = xForMonth(period.end);
     if (startX === null || endX === null) return null;
     const half = Math.max(chart.xStep / 2, 2);
-    return { x: Math.max(chart.padding, startX - half), width: Math.min(chart.width - chart.padding, endX + half) - Math.max(chart.padding, startX - half) };
+    const x = Math.max(chart.padding, startX - half);
+    const right = Math.min(chart.width - chart.padding, endX + half);
+    return { x, width: right - x };
   };
 
   return (
@@ -149,7 +151,7 @@ export function ListeningTimeline({
 
           {candidatePeriod ? (() => {
             const rect = rangeRect(candidatePeriod);
-            return rect ? <rect x={rect.x} y="20" width={rect.width} height="220" className="fill-fuchsia-400/20" stroke="currentColor" strokeWidth="2" className="fill-fuchsia-400/20 text-fuchsia-300" /> : null;
+            return rect ? <rect x={rect.x} y="20" width={rect.width} height="220" stroke="currentColor" strokeWidth="2" className="fill-fuchsia-400/20 text-fuchsia-300" /> : null;
           })() : null}
 
           <polyline points={chart.path} fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="text-fuchsia-300" />
