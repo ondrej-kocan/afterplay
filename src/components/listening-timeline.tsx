@@ -34,6 +34,18 @@ export function ListeningTimeline({ data }: { data: MonthlyListening[] }) {
     setActiveIndex(Math.max(0, Math.min(data.length - 1, index)));
   };
 
+  const startInteraction = (event: React.PointerEvent<SVGSVGElement>) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    move(event);
+  };
+
+  const endInteraction = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
   return (
     <div className="mt-8 border-t border-white/10 pt-8">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -48,13 +60,16 @@ export function ListeningTimeline({ data }: { data: MonthlyListening[] }) {
         </p>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-black/20 p-3 sm:p-4">
+      <div className="mt-6 select-none overflow-hidden rounded-2xl border border-white/10 bg-black/20 p-3 sm:p-4">
         <svg
           viewBox={`0 0 ${chart.width} ${chart.height}`}
-          className="block h-auto w-full touch-none"
+          className="block h-auto w-full cursor-crosshair select-none touch-none"
           role="img"
           aria-label="Monthly listening history timeline"
+          onPointerDown={startInteraction}
           onPointerMove={move}
+          onPointerUp={endInteraction}
+          onPointerCancel={endInteraction}
           onPointerLeave={() => setActiveIndex(null)}
         >
           <line x1="20" y1="240" x2="980" y2="240" stroke="currentColor" className="text-white/10" />
@@ -75,7 +90,7 @@ export function ListeningTimeline({ data }: { data: MonthlyListening[] }) {
             </>
           ) : null}
         </svg>
-        <div className="mt-2 flex justify-between text-xs text-zinc-500">
+        <div className="mt-2 flex select-none justify-between text-xs text-zinc-500">
           <span>{monthFormatter.format(new Date(data[0].year, data[0].month, 1))}</span>
           <span>{monthFormatter.format(new Date(data[data.length - 1].year, data[data.length - 1].month, 1))}</span>
         </div>
