@@ -11,6 +11,7 @@ import { TrackObsessions } from "@/components/track-obsessions";
 import { findArtistComebacks } from "@/lib/analytics/artist-comebacks";
 import { buildArtistEras } from "@/lib/analytics/artist-eras";
 import { findArtistObsessions } from "@/lib/analytics/artist-obsessions";
+import { filterExcludedPlays, mergeExcludedPeriods, type ExcludedPeriod } from "@/lib/analytics/exclusions";
 import { summarizeMonth } from "@/lib/analytics/month-detail";
 import { aggregateMonthlyListening } from "@/lib/analytics/monthly";
 import { summarizeListeningHistory } from "@/lib/analytics/summary";
@@ -23,20 +24,28 @@ const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   month: "short",
   year: "numeric",
 });
+const monthFormatter = new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric" });
 
 export function ListeningDashboard({ plays }: { plays: Play[] }) {
   const [selectedMonth, setSelectedMonth] = useState<SelectedMonth | null>(null);
+  const [excludedPeriods, setExcludedPeriods] = useState<ExcludedPeriod[]>([]);
 
-  const summary = useMemo(() => summarizeListeningHistory(plays), [plays]);
-  const monthly = useMemo(() => aggregateMonthlyListening(plays), [plays]);
-  const artistEras = useMemo(() => buildArtistEras(plays), [plays]);
-  const artistObsessions = useMemo(() => findArtistObsessions(plays), [plays]);
-  const trackObsessions = useMemo(() => findTrackObsessions(plays), [plays]);
-  const artistComebacks = useMemo(() => findArtistComebacks(plays), [plays]);
+  const analysisPlays = useMemo(() => filterExcludedPlays(plays, excludedPeriods), [plays, excludedPeriods]);
+  const timelineMonthly = useMemo(() => aggregateMonthlyListening(plays), [plays]);
+  const summary = useMemo(() => summarizeListeningHistory(analysisPlays), [analysisPlays]);
+  const artistEras = useMemo(() => buildArtistEras(analysisPlays), [analysisPlays]);
+  const artistObsessions = useMemo(() => findArtistObsessions(analysisPlays), [analysisPlays]);
+  const trackObsessions = useMemo(() => findTrackObsessions(analysisPlays), [analysisPlays]);
+  const artistComebacks = useMemo(() => findArtistComebacks(analysisPlays), [analysisPlays]);
   const monthDetail = useMemo(
-    () => (selectedMonth ? summarizeMonth(plays, selectedMonth.year, selectedMonth.month) : null),
-    [plays, selectedMonth],
+    () => (selectedMonth ? summarizeMonth(analysisPlays, selectedMonth.year, selectedMonth.month) : null),
+    [analysisPlays, selectedMonth],
   );
+
+  const addExcludedPeriod = (period: ExcludedPeriod) => {
+    setExcludedPeriods((current) => mergeExcludedPeriods([...current, period]));
+    setSelectedMonth(null);
+  };
 
   const metrics = [
     ["Plays", numberFormatter.format(summary.totalPlays)],
@@ -66,9 +75,43 @@ export function ListeningDashboard({ plays }: { plays: Play[] }) {
         ))}
       </dl>
 
-      <ListeningTimeline data={monthly} selectedMonth={selectedMonth} onSelectMonth={setSelectedMonth} />
-      {monthDetail ? <MonthDetail detail={monthDetail} /> : null}
-      <ArtistErasView data={artistEras} plays={plays} />
+      <ListeningTimeline
+        data={timelineMonthly}
+        selectedMonth={selectedMonth}
+        excludedPeriods={excludedPeriods}
+        onSelectMonth={setSelectedMonth}
+        onExcludePeriod={addExcludedPeriod}
+      />
+
+      {excludedPeriods.length > 0 ? (
+        <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-zinc-200">Excluded periods</p>
+              <p className="mt-1 text-xs text-zinc-500">These ranges are ignored by every analysis except the source timeline.</p>
+            </div>
+            <button type="button" onClick={() => setExcludedPeriods([])} className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-zinc-300">
+              Restore all
+            </button>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {excludedPeriods.map((period, index) => (
+              <button
+                key={`${period.start.year}-${period.start.month}-${period.end.year}-${period.end.month}`}
+                type="button"
+                onClick={() => setExcludedPeriods((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-zinc-300"
+                title="Restore this period"
+              >
+                {monthFormatter.format(new Date(period.start.year, period.start.month, 1))} → {monthFormatter.format(new Date(period.end.year, period.end.month, 1))} · restore
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {monthDetail && monthDetail.totalPlays > 0 ? <MonthDetail detail={monthDetail} /> : null}
+      <ArtistErasView data={artistEras} plays={analysisPlays} />
       <ArtistObsessions obsessions={artistObsessions} />
       <TrackObsessions obsessions={trackObsessions} />
       <ArtistComebacks comebacks={artistComebacks} />
