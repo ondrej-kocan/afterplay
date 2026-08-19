@@ -1,49 +1,25 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
-import { MonthDetail } from "@/components/month-detail";
-import { ListeningTimeline, type SelectedMonth } from "@/components/listening-timeline";
-import { summarizeMonth } from "@/lib/analytics/month-detail";
-import { aggregateMonthlyListening, type MonthlyListening } from "@/lib/analytics/monthly";
-import { summarizeListeningHistory, type ListeningSummary } from "@/lib/analytics/summary";
+import { ListeningDashboard } from "@/components/listening-dashboard";
 import { LastFmCsvImporter } from "@/lib/importers/lastfm";
 import type { Play } from "@/lib/listening/play";
 
 const importer = new LastFmCsvImporter();
-const numberFormatter = new Intl.NumberFormat("en-GB");
-const dateFormatter = new Intl.DateTimeFormat("en-GB", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
 
 export function HistoryUpload() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [plays, setPlays] = useState<Play[]>([]);
-  const [summary, setSummary] = useState<ListeningSummary | null>(null);
-  const [monthly, setMonthly] = useState<MonthlyListening[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState<SelectedMonth | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
-
-  const monthDetail = useMemo(
-    () =>
-      selectedMonth && plays.length > 0
-        ? summarizeMonth(plays, selectedMonth.year, selectedMonth.month)
-        : null,
-    [plays, selectedMonth],
-  );
 
   const chooseFile = () => inputRef.current?.click();
 
   const importFile = async (nextFile: File | null) => {
     setFile(nextFile);
     setPlays([]);
-    setSummary(null);
-    setMonthly([]);
-    setSelectedMonth(null);
     setError(null);
 
     if (!nextFile) return;
@@ -52,8 +28,6 @@ export function HistoryUpload() {
     try {
       const result = await importer.import(nextFile);
       setPlays(result.plays);
-      setSummary(summarizeListeningHistory(result.plays));
-      setMonthly(aggregateMonthlyListening(result.plays));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Afterplay could not import this file.");
     } finally {
@@ -86,7 +60,7 @@ export function HistoryUpload() {
             disabled={isImporting}
             className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-fuchsia-100 disabled:cursor-wait disabled:opacity-60"
           >
-            {isImporting ? "Reading history…" : summary ? "Choose another CSV" : "Choose CSV"}
+            {isImporting ? "Reading history…" : plays.length > 0 ? "Choose another CSV" : "Choose CSV"}
           </button>
         </div>
       </div>
@@ -95,7 +69,7 @@ export function HistoryUpload() {
         {file ? (
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-medium text-zinc-100">{file.name}</span>
-            <span>{(file.size / 1024 / 1024).toFixed(2)} MB · {isImporting ? "processing locally" : summary ? "imported locally" : "not imported"}</span>
+            <span>{(file.size / 1024 / 1024).toFixed(2)} MB · {isImporting ? "processing locally" : plays.length > 0 ? "imported locally" : "not imported"}</span>
           </div>
         ) : (
           <span>Last.fm CSV is supported first. More listening-history sources will follow.</span>
@@ -108,47 +82,7 @@ export function HistoryUpload() {
         </div>
       ) : null}
 
-      {summary ? <HistorySummary summary={summary} /> : null}
-      {monthly.length > 0 ? (
-        <ListeningTimeline
-          data={monthly}
-          selectedMonth={selectedMonth}
-          onSelectMonth={setSelectedMonth}
-        />
-      ) : null}
-      {monthDetail ? <MonthDetail detail={monthDetail} /> : null}
+      {plays.length > 0 ? <ListeningDashboard plays={plays} /> : null}
     </section>
-  );
-}
-
-function HistorySummary({ summary }: { summary: ListeningSummary }) {
-  const metrics = [
-    ["Plays", numberFormatter.format(summary.totalPlays)],
-    ["Artists", numberFormatter.format(summary.uniqueArtists)],
-    ["Tracks", numberFormatter.format(summary.uniqueTracks)],
-    ["Albums", numberFormatter.format(summary.uniqueAlbums)],
-  ];
-
-  return (
-    <div className="mt-8 border-t border-white/10 pt-8">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-medium text-fuchsia-300">History loaded</p>
-          <h3 className="mt-1 text-xl font-semibold text-white">Your listening life, ready to explore.</h3>
-        </div>
-        <p className="text-sm text-zinc-400">
-          {dateFormatter.format(summary.firstPlay)} → {dateFormatter.format(summary.lastPlay)}
-        </p>
-      </div>
-
-      <dl className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {metrics.map(([label, value]) => (
-          <div key={label} className="rounded-2xl border border-white/10 bg-black/20 p-4">
-            <dt className="text-sm text-zinc-400">{label}</dt>
-            <dd className="mt-1 text-2xl font-semibold tracking-tight text-white">{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
   );
 }
