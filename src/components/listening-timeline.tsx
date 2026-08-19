@@ -6,8 +6,19 @@ import type { MonthlyListening } from "@/lib/analytics/monthly";
 const monthFormatter = new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric" });
 const numberFormatter = new Intl.NumberFormat("en-GB");
 
-export function ListeningTimeline({ data }: { data: MonthlyListening[] }) {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+export type SelectedMonth = {
+  year: number;
+  month: number;
+};
+
+type ListeningTimelineProps = {
+  data: MonthlyListening[];
+  selectedMonth: SelectedMonth | null;
+  onSelectMonth: (month: SelectedMonth) => void;
+};
+
+export function ListeningTimeline({ data, selectedMonth, onSelectMonth }: ListeningTimelineProps) {
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   const chart = useMemo(() => {
     const width = 1000;
@@ -20,18 +31,26 @@ export function ListeningTimeline({ data }: { data: MonthlyListening[] }) {
       x: padding + index * xStep,
       y: height - padding - (point.plays / max) * (height - padding * 2),
     }));
-    return { width, height, max, points, path: points.map((p) => `${p.x},${p.y}`).join(" ") };
+    return { width, height, points, path: points.map((p) => `${p.x},${p.y}`).join(" ") };
   }, [data]);
 
   if (data.length === 0) return null;
 
-  const active = activeIndex === null ? null : chart.points[activeIndex];
+  const selectedIndex = selectedMonth
+    ? data.findIndex((point) => point.year === selectedMonth.year && point.month === selectedMonth.month)
+    : -1;
+  const displayIndex = hoverIndex ?? (selectedIndex >= 0 ? selectedIndex : null);
+  const active = displayIndex === null ? null : chart.points[displayIndex];
 
-  const move = (event: React.PointerEvent<SVGSVGElement>) => {
+  const indexFromPointer = (event: React.PointerEvent<SVGSVGElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     const x = ((event.clientX - rect.left) / rect.width) * chart.width;
     const index = Math.round(((x - 20) / (chart.width - 40)) * (data.length - 1));
-    setActiveIndex(Math.max(0, Math.min(data.length - 1, index)));
+    return Math.max(0, Math.min(data.length - 1, index));
+  };
+
+  const move = (event: React.PointerEvent<SVGSVGElement>) => {
+    setHoverIndex(indexFromPointer(event));
   };
 
   const startInteraction = (event: React.PointerEvent<SVGSVGElement>) => {
@@ -41,6 +60,11 @@ export function ListeningTimeline({ data }: { data: MonthlyListening[] }) {
   };
 
   const endInteraction = (event: React.PointerEvent<SVGSVGElement>) => {
+    const index = indexFromPointer(event);
+    const point = data[index];
+    onSelectMonth({ year: point.year, month: point.month });
+    setHoverIndex(index);
+
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -56,7 +80,7 @@ export function ListeningTimeline({ data }: { data: MonthlyListening[] }) {
         <p className="text-sm text-zinc-400">
           {active
             ? `${monthFormatter.format(new Date(active.year, active.month, 1))} · ${numberFormatter.format(active.plays)} plays`
-            : "Move across the chart to inspect a month"}
+            : "Tap or drag across the chart to choose a month"}
         </p>
       </div>
 
@@ -69,8 +93,13 @@ export function ListeningTimeline({ data }: { data: MonthlyListening[] }) {
           onPointerDown={startInteraction}
           onPointerMove={move}
           onPointerUp={endInteraction}
-          onPointerCancel={endInteraction}
-          onPointerLeave={() => setActiveIndex(null)}
+          onPointerCancel={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId);
+            }
+            setHoverIndex(null);
+          }}
+          onPointerLeave={() => setHoverIndex(null)}
         >
           <line x1="20" y1="240" x2="980" y2="240" stroke="currentColor" className="text-white/10" />
           <line x1="20" y1="20" x2="980" y2="20" stroke="currentColor" className="text-white/5" />
