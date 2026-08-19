@@ -59,7 +59,7 @@ export function ListeningDashboard({ plays }: { plays: Play[] }) {
 
       <ListeningTimeline data={monthly} selectedMonth={selectedMonth} onSelectMonth={setSelectedMonth} />
       {monthDetail ? <MonthDetail detail={monthDetail} /> : null}
-      <ArtistErasView data={artistEras} />
+      <ArtistErasView data={artistEras} plays={plays} />
     </div>
   );
 }
