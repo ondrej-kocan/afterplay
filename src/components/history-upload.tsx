@@ -1,11 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
+import { MonthDetail } from "@/components/month-detail";
+import { ListeningTimeline, type SelectedMonth } from "@/components/listening-timeline";
+import { summarizeMonth } from "@/lib/analytics/month-detail";
 import { aggregateMonthlyListening, type MonthlyListening } from "@/lib/analytics/monthly";
 import { summarizeListeningHistory, type ListeningSummary } from "@/lib/analytics/summary";
 import { LastFmCsvImporter } from "@/lib/importers/lastfm";
-import { ListeningTimeline } from "@/components/listening-timeline";
+import type { Play } from "@/lib/listening/play";
 
 const importer = new LastFmCsvImporter();
 const numberFormatter = new Intl.NumberFormat("en-GB");
@@ -18,17 +21,29 @@ const dateFormatter = new Intl.DateTimeFormat("en-GB", {
 export function HistoryUpload() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [plays, setPlays] = useState<Play[]>([]);
   const [summary, setSummary] = useState<ListeningSummary | null>(null);
   const [monthly, setMonthly] = useState<MonthlyListening[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState<SelectedMonth | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+
+  const monthDetail = useMemo(
+    () =>
+      selectedMonth && plays.length > 0
+        ? summarizeMonth(plays, selectedMonth.year, selectedMonth.month)
+        : null,
+    [plays, selectedMonth],
+  );
 
   const chooseFile = () => inputRef.current?.click();
 
   const importFile = async (nextFile: File | null) => {
     setFile(nextFile);
+    setPlays([]);
     setSummary(null);
     setMonthly([]);
+    setSelectedMonth(null);
     setError(null);
 
     if (!nextFile) return;
@@ -36,6 +51,7 @@ export function HistoryUpload() {
     setIsImporting(true);
     try {
       const result = await importer.import(nextFile);
+      setPlays(result.plays);
       setSummary(summarizeListeningHistory(result.plays));
       setMonthly(aggregateMonthlyListening(result.plays));
     } catch (caught) {
@@ -93,7 +109,14 @@ export function HistoryUpload() {
       ) : null}
 
       {summary ? <HistorySummary summary={summary} /> : null}
-      {monthly.length > 0 ? <ListeningTimeline data={monthly} /> : null}
+      {monthly.length > 0 ? (
+        <ListeningTimeline
+          data={monthly}
+          selectedMonth={selectedMonth}
+          onSelectMonth={setSelectedMonth}
+        />
+      ) : null}
+      {monthDetail ? <MonthDetail detail={monthDetail} /> : null}
     </section>
   );
 }
